@@ -12,7 +12,8 @@
   opacity: 0.3;
 }
 
-.sample-image span {
+.sample-image span,
+.webcam span {
   transition: 0.5s ease;
   opacity: 0;
   position: absolute;
@@ -27,10 +28,24 @@
   opacity: 1;
 }
 
-.sample-image canvas {
+.sample-image canvas,
+.webcam canvas.overlay {
   opacity: 0.66;
   position: absolute;
   top: 0;
   left: 0;
   z-index: 2;
+}
+
+.webcam {
+  position: relative;
+  float: left;
+  width: 48%;
+  margin: 2% 1%;
+  cursor: pointer;
+}
+
+.webcam video {
+  clear: both;
+  display: block;
 }

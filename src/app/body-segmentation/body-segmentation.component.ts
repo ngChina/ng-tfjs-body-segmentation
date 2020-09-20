@@ -1,4 +1,4 @@
-import { Component, ElementRef, QueryList, ViewChildren } from '@angular/core';
+import { Component, ElementRef, QueryList, Renderer2, ViewChild, ViewChildren } from '@angular/core';
 import { SemanticPartSegmentation } from '@tensorflow-models/body-pix';
 import { BodySegmentationService } from './body-segmentation.service';
 
@@ -37,7 +37,7 @@ const colourMap = [
   styleUrls: ['./body-segmentation.component.css']
 })
 export class BodySegmentationComponent {
-  viewMode: 'image' | 'webcam' = 'image';
+  viewMode: 'image' | 'webcam' = 'webcam';
 
   sampleImages = [
     'https://cdn.glitch.com/ff4f00ae-20e2-4bdc-8771-2642ee05ae93%2Fjj.jpg?v=1581963497215',
@@ -45,9 +45,15 @@ export class BodySegmentationComponent {
   ];
   segmentations: SemanticPartSegmentation[];
 
-  @ViewChildren('segmentation', { read: ElementRef }) segmentationCanvases: QueryList<ElementRef>;
+  @ViewChildren('imageCanvas', { read: ElementRef }) imageCanvases: QueryList<ElementRef>;
 
-  constructor(public bodySegmentationService: BodySegmentationService) {
+  @ViewChild('webcam', { read: ElementRef }) webcamElement: ElementRef;
+  @ViewChild('webcamCanvas', { read: ElementRef }) webcamCanvasElement: ElementRef;
+  previousSegmentationComplete: any;
+  videoRenderCanvas;
+  videoRenderCanvasCtx;
+
+  constructor(private renderer: Renderer2, public bodySegmentationService: BodySegmentationService) {
     this.segmentations = this.sampleImages.map(sample => undefined);
   }
 
@@ -59,7 +65,7 @@ export class BodySegmentationComponent {
     this.bodySegmentationService.segmentPersonParts(event.target).then((parts: SemanticPartSegmentation) => {
       this.segmentations[index] = parts;
 
-      const canvas = this.segmentationCanvases.toArray()[index].nativeElement;
+      const canvas = this.imageCanvases.toArray()[index].nativeElement;
       canvas.width = parts.width;
       canvas.height = parts.height;
 
@@ -91,5 +97,60 @@ export class BodySegmentationComponent {
     }
 
     ctx.putImageData(imageData, 0, 0);
+  }
+
+  // Check if webcam access is supported.
+  hasGetUserMedia() {
+    return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+  }
+
+  // Enable the live webcam view and start classification.
+  enableCam() {
+    // We will also create a tempory canvas to render to that is in memory only
+    // to store frames from the web cam stream for classification.
+    this.videoRenderCanvas = document.createElement('canvas');
+    this.videoRenderCanvasCtx = this.videoRenderCanvas.getContext('2d');
+
+    // getUsermedia parameters.
+    const constraints = {
+      video: {
+        facingMode: 'environment'
+        // width: { ideal: 4096 },
+        // height: { ideal: 2160 }
+      }
+    };
+
+    // Activate the webcam stream.
+    navigator.mediaDevices.getUserMedia(constraints).then(stream => {
+      const webcamEl = this.webcamElement.nativeElement;
+      this.renderer.setProperty(webcamEl, 'srcObject', stream);
+
+      this.renderer.listen(webcamEl, 'loadedmetadata', () => {
+        // Update widths and heights once video is successfully played otherwise
+        // it will have width and height of zero initially causing classification
+        // to fail.
+        this.webcamCanvasElement.nativeElement.width = webcamEl.videoWidth;
+        this.webcamCanvasElement.nativeElement.height = webcamEl.videoHeight;
+        this.videoRenderCanvas.width = webcamEl.videoWidth;
+        this.videoRenderCanvas.height = webcamEl.videoHeight;
+      });
+
+      this.renderer.listen(webcamEl, 'loadeddata', () => this.predictWebcam());
+    });
+  }
+
+  predictWebcam() {
+    if (this.previousSegmentationComplete) {
+      // Copy the video frame from webcam to a tempory canvas in memory only (not in the DOM).
+      this.videoRenderCanvasCtx.drawImage(this.webcamElement.nativeElement, 0, 0);
+      this.previousSegmentationComplete = false;
+      // Now classify the canvas image we have available.
+      this.bodySegmentationService.segmentPersonParts(this.videoRenderCanvas).then(segmentation => {
+        this.processSegmentation(this.webcamCanvasElement.nativeElement, segmentation);
+        this.previousSegmentationComplete = true;
+      });
+    }
+    // Call this function again to keep predicting when the browser is ready.
+    window.requestAnimationFrame(this.predictWebcam.bind(this));
   }
 }
