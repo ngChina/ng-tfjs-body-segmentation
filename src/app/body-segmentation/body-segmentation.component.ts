@@ -122,12 +122,11 @@ export class BodySegmentationComponent {
       const webcamEl = this.webcamElement.nativeElement;
       this.renderer.setProperty(webcamEl, 'srcObject', stream);
 
-      this.renderer.listen(webcamEl, 'play', event => {
-        console.log('play', event);
+      this.renderer.listen(webcamEl, 'loadedmetadata', () => {
         // Update widths and heights once video is successfully played otherwise
         // it will have width and height of zero initially causing classification to fail.
-        this.webcamCanvasElement.nativeElement.width = webcamEl.videoWidth;
-        this.webcamCanvasElement.nativeElement.height = webcamEl.videoHeight;
+        this.renderer.setProperty(this.webcamCanvasElement.nativeElement, 'width', webcamEl.videoWidth);
+        this.renderer.setProperty(this.webcamCanvasElement.nativeElement, 'height', webcamEl.videoHeight);
         this.videoRenderCanvas.width = webcamEl.videoWidth;
         this.videoRenderCanvas.height = webcamEl.videoHeight;
       });
@@ -137,7 +136,6 @@ export class BodySegmentationComponent {
   }
 
   predictWebcam() {
-    console.log('predictWebcam');
     if (this.previousSegmentationComplete) {
       // Copy the video frame from webcam to a tempory canvas in memory only (not in the DOM).
       this.videoRenderCanvasCtx.drawImage(this.webcamElement.nativeElement, 0, 0);
