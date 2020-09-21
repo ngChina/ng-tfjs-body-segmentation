@@ -37,6 +37,12 @@
   z-index: 2;
 }
 
+.webcam {
+  width: 640px;
+  height: 480px;
+  cursor: pointer;
+}
+
 .webcam video {
   clear: both;
   display: block;
