@@ -114,7 +114,10 @@ export class BodySegmentationComponent {
 
     // getUsermedia parameters.
     const constraints = {
-      video: true
+      video: {
+        width: { ideal: 640 },
+        height: { ideal: 480 }
+      }
     };
 
     // Activate the webcam stream.
@@ -125,6 +128,8 @@ export class BodySegmentationComponent {
       this.renderer.listen(webcamEl, 'loadedmetadata', () => {
         // Update widths and heights once video is successfully played otherwise
         // it will have width and height of zero initially causing classification to fail.
+        this.renderer.setProperty(webcamEl.nativeElement, 'width', webcamEl.videoWidth);
+        this.renderer.setProperty(webcamEl.nativeElement, 'height', webcamEl.videoHeight);
         this.renderer.setProperty(this.webcamCanvasElement.nativeElement, 'width', webcamEl.videoWidth);
         this.renderer.setProperty(this.webcamCanvasElement.nativeElement, 'height', webcamEl.videoHeight);
         this.videoRenderCanvas.width = webcamEl.videoWidth;

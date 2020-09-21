@@ -28,10 +28,10 @@
       work. When ready click "enable webcam" below and accept access to the webcam when the browser asks (check the top left of your window)
     </p>
 
-    <div class="w-full flex flex-col items-center">
+    <div class="w-full h-full flex flex-col items-center">
       <span *ngIf="!hasGetUserMedia()" class="text-center text-3xl">Webcam is not supported by your browser</span>
       <button *ngIf="hasGetUserMedia()" class="btn" (click)="enableCam()">Enable Webcam</button>
-      <div class="webcam relative w-full pb-2/3 flex-1">
+      <div class="webcam relative h-128 pb-2/3 flex-1">
         <video #webcam class="absolute object-contain h-96 w-full" autoplay></video>
         <canvas #webcamCanvas class="overlay"></canvas>
       </div>
