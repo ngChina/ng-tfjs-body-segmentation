@@ -30,7 +30,7 @@
 
     <div class="w-full h-full flex flex-col items-center">
       <span *ngIf="!hasGetUserMedia()" class="text-center text-3xl">Webcam is not supported by your browser</span>
-      <button *ngIf="hasGetUserMedia()" class="btn" (click)="enableCam()">Enable Webcam</button>
+      <button *ngIf="hasGetUserMedia() && !videoRenderCanvas" class="btn" (click)="enableCam()">Enable Webcam</button>
       <div class="webcam relative pb-2/3 flex-1">
         <video #webcam class="object-contain h-96" autoplay></video>
         <canvas #webcamCanvas class="overlay"></canvas>
