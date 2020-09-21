@@ -38,12 +38,12 @@
 }
 
 .webcam {
-  width: 640px;
-  height: 480px;
   cursor: pointer;
 }
 
 .webcam video {
   clear: both;
   display: block;
+  width: 640px;
+  height: 480px;
 }

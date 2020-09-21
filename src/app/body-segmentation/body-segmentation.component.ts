@@ -37,7 +37,7 @@ const colourMap = [
   styleUrls: ['./body-segmentation.component.css']
 })
 export class BodySegmentationComponent {
-  viewMode: 'image' | 'webcam' = 'webcam';
+  viewMode: 'image' | 'webcam' = 'image';
 
   sampleImages = [
     'https://cdn.glitch.com/ff4f00ae-20e2-4bdc-8771-2642ee05ae93%2Fjj.jpg?v=1581963497215',
