@@ -1,36 +1,6 @@
 import { Component, ElementRef, QueryList, Renderer2, ViewChild, ViewChildren } from '@angular/core';
-import { SemanticPartSegmentation } from '@tensorflow-models/body-pix';
+import * as bodyPix from '@tensorflow-models/body-pix';
 import { BodySegmentationService } from './body-segmentation.service';
-
-// This array will hold the colours we wish to use to highlight different body parts we find.
-// RGBA (Red, Green, Blue, and Alpha (transparency) channels can be specified).
-const colourMap = [
-  { r: 244, g: 67, b: 54, a: 255 }, // Left_face
-  { r: 183, g: 28, b: 28, a: 255 }, // Right_face
-  { r: 233, g: 30, b: 99, a: 255 }, // left_upper_arm_front
-  { r: 136, g: 14, b: 79, a: 255 }, // left_upper_arm_back
-  { r: 233, g: 30, b: 99, a: 255 }, // right_upper_arm_front
-  { r: 136, g: 14, b: 79, a: 255 }, // 	right_upper_arm_back
-  { r: 233, g: 30, b: 99, a: 255 }, // 	left_lower_arm_front
-  { r: 136, g: 14, b: 79, a: 255 }, // 	left_lower_arm_back
-  { r: 233, g: 30, b: 99, a: 255 }, // right_lower_arm_front
-  { r: 136, g: 14, b: 79, a: 255 }, // right_lower_arm_back
-  { r: 156, g: 39, b: 176, a: 255 }, // left_hand
-  { r: 156, g: 39, b: 176, a: 255 }, // right_hand
-  { r: 63, g: 81, b: 181, a: 255 }, // torso_front
-  { r: 26, g: 35, b: 126, a: 255 }, // torso_back
-  { r: 33, g: 150, b: 243, a: 255 }, // left_upper_leg_front
-  { r: 13, g: 71, b: 161, a: 255 }, // left_upper_leg_back
-  { r: 33, g: 150, b: 243, a: 255 }, // right_upper_leg_front
-  { r: 13, g: 71, b: 161, a: 255 }, // right_upper_leg_back
-  { r: 0, g: 188, b: 212, a: 255 }, // left_lower_leg_front
-  { r: 0, g: 96, b: 100, a: 255 }, // left_lower_leg_back
-  { r: 0, g: 188, b: 212, a: 255 }, // right_lower_leg_front
-  { r: 0, g: 188, b: 212, a: 255 }, // right_lower_leg_back
-  { r: 255, g: 193, b: 7, a: 255 }, // left_feet
-  { r: 255, g: 193, b: 7, a: 255 } // right_feet
-];
-
 @Component({
   selector: 'app-body-segmentation',
   templateUrl: './body-segmentation.component.html',
@@ -43,7 +13,7 @@ export class BodySegmentationComponent {
     'https://cdn.glitch.com/ff4f00ae-20e2-4bdc-8771-2642ee05ae93%2Fjj.jpg?v=1581963497215',
     'https://cdn.glitch.com/ff4f00ae-20e2-4bdc-8771-2642ee05ae93%2Fwalk.jpg?v=1581963497392'
   ];
-  segmentations: SemanticPartSegmentation[];
+  segmentations: bodyPix.SemanticPartSegmentation[];
 
   @ViewChildren('imageCanvas', { read: ElementRef }) imageCanvases: QueryList<ElementRef>;
 
@@ -63,7 +33,7 @@ export class BodySegmentationComponent {
       return;
     }
 
-    this.bodySegmentationService.segmentPersonParts(event.target).then((parts: SemanticPartSegmentation) => {
+    this.bodySegmentationService.segmentPersonParts(event.target).then((parts: bodyPix.SemanticPartSegmentation) => {
       this.segmentations[index] = parts;
 
       const canvas = this.imageCanvases.toArray()[index].nativeElement;
@@ -76,28 +46,17 @@ export class BodySegmentationComponent {
 
   // render returned segmentation data to a given canvas context.
   processSegmentation(canvas, segmentation) {
-    const ctx = canvas.getContext('2d');
+    // The colored part image is an rgb image with a corresponding color from the rainbow colors
+    // for each part at each pixel, and black pixels where there is no part.
+    const coloredPartImage = bodyPix.toColoredPartMask(segmentation);
 
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const data = imageData.data;
-
-    let n = 0;
-    for (let i = 0; i < data.length; i += 4) {
-      if (segmentation.data[n] !== -1) {
-        data[i] = colourMap[segmentation.data[n]].r; // red
-        data[i + 1] = colourMap[segmentation.data[n]].g; // green
-        data[i + 2] = colourMap[segmentation.data[n]].b; // blue
-        data[i + 3] = colourMap[segmentation.data[n]].a; // alpha
-      } else {
-        data[i] = 0;
-        data[i + 1] = 0;
-        data[i + 2] = 0;
-        data[i + 3] = 0;
-      }
-      n++;
-    }
-
-    ctx.putImageData(imageData, 0, 0);
+    // Draw the colored part image on top of the original image onto a canvas.
+    // The colored part image will be drawn semi-transparent, with an opacity of 0.7,
+    // allowing for the original image to be visible under.
+    const opacity = 0.7;
+    const flipHorizontal = false;
+    const maskBlurAmount = 0;
+    bodyPix.drawMask(canvas, canvas, coloredPartImage, opacity, maskBlurAmount, flipHorizontal);
   }
 
   // Check if webcam access is supported.
@@ -139,7 +98,7 @@ export class BodySegmentationComponent {
   }
 
   predictWebcam() {
-    if (this.previousSegmentationComplete) {
+    if (this.previousSegmentationComplete && this.webcamCanvasElement) {
       // Copy the video frame from webcam to a tempory canvas in memory only (not in the DOM).
       this.videoRenderCanvasCtx.drawImage(this.webcamElement.nativeElement, 0, 0);
       this.previousSegmentationComplete = false;
