@@ -1,6 +1,8 @@
 import { Component, ElementRef, QueryList, Renderer2, ViewChild, ViewChildren } from '@angular/core';
 import * as bodyPix from '@tensorflow-models/body-pix';
+import { Subscription } from 'rxjs';
 import { BodySegmentationService } from './body-segmentation.service';
+
 @Component({
   selector: 'app-body-segmentation',
   templateUrl: './body-segmentation.component.html',
@@ -8,6 +10,7 @@ import { BodySegmentationService } from './body-segmentation.service';
 })
 export class BodySegmentationComponent {
   viewMode: 'image' | 'webcam' = 'image';
+  subscription: Subscription;
 
   sampleImages = [
     'https://cdn.glitch.com/ff4f00ae-20e2-4bdc-8771-2642ee05ae93%2Fjj.jpg?v=1581963497215',
@@ -28,12 +31,28 @@ export class BodySegmentationComponent {
     this.segmentations = this.sampleImages.map(sample => undefined);
   }
 
+  setViewMode(newMode) {
+    this.viewMode = newMode;
+
+    if (this.subscription) {
+      this.subscription.unsubscribe();
+      this.subscription = undefined;
+    }
+  }
+
   onImageClick(event, index) {
     if (this.segmentations[index]) {
       return;
     }
 
-    this.bodySegmentationService.segmentPersonParts(event.target).then((parts: bodyPix.SemanticPartSegmentation) => {
+    if (this.subscription) {
+      this.subscription.unsubscribe();
+      this.subscription = undefined;
+    }
+
+    this.subscription = this.bodySegmentationService.segmentation$.subscribe((parts: bodyPix.SemanticPartSegmentation) => {
+      if (!parts) return;
+
       this.segmentations[index] = parts;
 
       const canvas = this.imageCanvases.toArray()[index].nativeElement;
@@ -42,10 +61,12 @@ export class BodySegmentationComponent {
 
       this.processSegmentation(canvas, parts);
     });
+
+    this.bodySegmentationService.segmentPersonParts(event.target);
   }
 
   // render returned segmentation data to a given canvas context.
-  processSegmentation(canvas, segmentation) {
+  private processSegmentation(canvas, segmentation) {
     // The colored part image is an rgb image with a corresponding color from the rainbow colors
     // for each part at each pixel, and black pixels where there is no part.
     const coloredPartImage = bodyPix.toColoredPartMask(segmentation);
@@ -93,20 +114,24 @@ export class BodySegmentationComponent {
         this.videoRenderCanvas.height = webcamEl.videoHeight;
       });
 
+      this.subscription = this.bodySegmentationService.segmentation$.subscribe((parts: bodyPix.SemanticPartSegmentation) => {
+        if (parts) {
+          this.processSegmentation(this.webcamCanvasElement.nativeElement, parts);
+        }
+        this.previousSegmentationComplete = true;
+      });
+
       this.renderer.listen(webcamEl, 'loadeddata', () => this.predictWebcam());
     });
   }
 
   predictWebcam() {
     if (this.previousSegmentationComplete && this.webcamCanvasElement) {
+      this.previousSegmentationComplete = false;
       // Copy the video frame from webcam to a tempory canvas in memory only (not in the DOM).
       this.videoRenderCanvasCtx.drawImage(this.webcamElement.nativeElement, 0, 0);
-      this.previousSegmentationComplete = false;
       // Now classify the canvas image we have available.
-      this.bodySegmentationService.segmentPersonParts(this.videoRenderCanvas).then(segmentation => {
-        this.processSegmentation(this.webcamCanvasElement.nativeElement, segmentation);
-        this.previousSegmentationComplete = true;
-      });
+      this.bodySegmentationService.segmentPersonParts(this.videoRenderCanvas);
     }
     // Call this function again to keep predicting when the browser is ready.
     window.requestAnimationFrame(this.predictWebcam.bind(this));
